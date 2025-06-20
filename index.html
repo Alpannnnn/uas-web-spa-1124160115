@@ -1,18 +1,41 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Pembayaran Lengkap</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="script.js" defer></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+
+    </script>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen py-8">
+<body id="body" class="min-h-screen py-8 bg-gradient-to-br from-green-500 to-orange-700 dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800">
     <div class="container mx-auto max-w-4xl px-4">
+        <div class="flex justify-end mb-4">
+        <div class="flex justify-end mb-4">
+            <button 
+            id="toggleDarkMode"
+            class="px-5 py-2.5 rounded-xl font-medium transition-all duration-300 ease-in-out 
+                bg-red-600 text-white 
+                hover:bg-red-700 
+                dark:bg-yellow-400 dark:text-gray-900 
+                dark:hover:bg-yellow-300 
+                shadow-md dark:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-yellow-500">
+            🌗 Dark Mode
+            </button>
+        </div>
+</div>
+
         <!-- Header -->
         <div class="text-center mb-8">
             <img src="assets/new logo resmi institusi V2 (1).png" alt="logo" class="mx-auto mb-4 w-20 h-25 object-contain" style="width: 25%;">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">Sistem Pembayaran</h1>
-            <p class="text-gray-600">Kelola transaksi dan pembayaran dengan mudah</p>
+            <h1 class="text-3xl font-bold text-white mb-2">Sistem Pembayaran</h1>
+            <p class="text-white">Kelola transaksi dan pembayaran dengan mudah</p>
         </div>
 
         <div class="grid lg:grid-cols-2 gap-8">

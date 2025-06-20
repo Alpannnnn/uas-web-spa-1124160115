@@ -1,408 +1,349 @@
+// ===== DATA & VARIABEL GLOBAL =====
+let transactions = [];
+let transactionIdCounter = 1;
+let currentDiscount = 0;
+let appliedPromoCode = '';
 
-        // ===== DATA & VARIABEL GLOBAL =====
-        let transactions = [];
-        let transactionIdCounter = 1;
-        let currentDiscount = 0;
-        let appliedPromoCode = '';
-        
-        // Database kode promo
-        const promoCodes = {
-            'HINDIA' : {discount: 10, type: 'percentage', description: 'Diskon 10%'},
-            'FEAST' : {discount: 20, type: 'percentage', description: 'Diskon 20%'},
-            'EFEKRUMKAC' : {discount: 50000, type: 'fixed', description: 'Diskon Rp 50.000'},
-            'THEADAMS' : {discount: 25, type: 'percentage', description: 'Diskon 25%'},
-            'LOMBASIHIR' : {discount: 100000, type: 'fixed', description: 'Diskon Rp 100.000'}
-        }
+// Database kode promo
+const promoCodes = {
+    'HINDIA': { discount: 10, type: 'percentage', description: 'Diskon 10%' },
+    'FEAST': { discount: 20, type: 'percentage', description: 'Diskon 20%' },
+    'EFEKRUMKAC': { discount: 50000, type: 'fixed', description: 'Diskon Rp 50.000' },
+    'THEADAMS': { discount: 25, type: 'percentage', description: 'Diskon 25%' },
+    'LOMBASIHIR': { discount: 100000, type: 'fixed', description: 'Diskon Rp 100.000' }
+};
 
+// Mapping metode pembayaran dengan warna
+const paymentMethodColors = {
+    'transfer': 'bg-blue-100 text-blue-800',
+    'ewallet': 'bg-purple-100 text-purple-800',
+    'credit': 'bg-orange-100 text-orange-800',
+    'cash': 'bg-green-100 text-green-800'
+};
 
+// Mapping nama metode pembayaran
+const paymentMethodNames = {
+    'transfer': 'Transfer Bank',
+    'ewallet': 'E-Wallet',
+    'credit': 'Kartu Kredit',
+    'cash': 'Bayar Tunai'
+};
 
-        // Mapping metode pembayaran dengan warna
-        const paymentMethodColors = {
-            'transfer': 'bg-blue-100 text-blue-800',
-            'ewallet': 'bg-purple-100 text-purple-800',
-            'credit': 'bg-orange-100 text-orange-800',
-            'cash': 'bg-green-100 text-green-800'
-        };
+// ===== DARK MODE FUNCTIONS =====
+function initDarkMode() {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-        // Mapping nama metode pembayaran
-        const paymentMethodNames = {
-            'transfer': 'Transfer Bank',
-            'ewallet': 'E-Wallet',
-            'credit': 'Kartu Kredit',
-            'cash': 'Bayar Tunai'
-        };
+    if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+        document.documentElement.classList.add('dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+    }
+}
 
-        // ===== MENDAPATKAN ELEMEN DOM =====
-        const paymentForm = document.getElementById('paymentForm');
-        const productSelect = document.getElementById('productSelect');
-        const quantity = document.getElementById('quantity');
-        const promoCode = document.getElementById('promoCode');
-        const applyPromoBtn = document.getElementById('applyPromoBtn');
-        const promoMessage = document.getElementById('promoMessage');
-        
-        // Elemen untuk menampilkan total
-        const subtotalEl = document.getElementById('subtotal');
-        const discountEl = document.getElementById('discount');
-        const discountRow = document.getElementById('discountRow');
-        const totalAmountEl = document.getElementById('totalAmount');
-        
-        // Elemen riwayat transaksi
-        const transactionList = document.getElementById('transactionList');
-        const emptyState = document.getElementById('emptyState');
-        const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-        
-        // Elemen statistik
-        const totalTransactionsEl = document.getElementById('totalTransactions');
-        const totalRevenueEl = document.getElementById('totalRevenue');
-        const avgTransactionEl = document.getElementById('avgTransaction');
-        
-        // Modal
-        const paymentModal = document.getElementById('paymentModal');
-        const paymentDetails = document.getElementById('paymentDetails');
-        const closeModalBtn = document.getElementById('closeModalBtn');
+function toggleDarkMode() {
+    const isDark = document.documentElement.classList.contains('dark');
 
-        // ===== FUNGSI UTILITY =====
-        
-        // Format mata uang Rupiah
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('id-ID', {
-                style: 'currency',
-                currency: 'IDR',
-                minimumFractionDigits: 0
-            }).format(amount);
-        }
+    if (isDark) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+    }
+}
 
-        // Format waktu
-        function getCurrentTime() {
-            const now = new Date();
-            return now.toLocaleString('id-ID', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+// ===== DOM ELEMENTS =====
+const paymentForm = document.getElementById('paymentForm');
+const productSelect = document.getElementById('productSelect');
+const quantity = document.getElementById('quantity');
+const promoCode = document.getElementById('promoCode');
+const applyPromoBtn = document.getElementById('applyPromoBtn');
+const promoMessage = document.getElementById('promoMessage');
 
-        // Generate transaction ID
-        function generateTransactionId() {
-            return 'TRX' + Date.now().toString().substr(-8) + Math.random().toString(36).substr(2, 4).toUpperCase();
-        }
+const subtotalEl = document.getElementById('subtotal');
+const discountEl = document.getElementById('discount');
+const discountRow = document.getElementById('discountRow');
+const totalAmountEl = document.getElementById('totalAmount');
 
-        // ===== FUNGSI KALKULASI =====
-        
-        // Hitung subtotal
-        function calculateSubtotal() {
-            const selectedOption = productSelect.options[productSelect.selectedIndex];
-            if (!selectedOption || !selectedOption.dataset.price) return 0;
-            
-            const price = parseInt(selectedOption.dataset.price);
-            const qty = parseInt(quantity.value) || 1;
-            return price * qty;
-        }
+const transactionList = document.getElementById('transactionList');
+const emptyState = document.getElementById('emptyState');
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 
-        // Hitung diskon
-        function calculateDiscount(subtotal, promoData) {
-            if (!promoData) return 0;
-            
-            if (promoData.type === 'percentage') {
-                return Math.round(subtotal * promoData.discount / 100);
-            } else {
-                return Math.min(promoData.discount, subtotal);
-            }
-        }
+const totalTransactionsEl = document.getElementById('totalTransactions');
+const totalRevenueEl = document.getElementById('totalRevenue');
+const avgTransactionEl = document.getElementById('avgTransaction');
 
-        // Update tampilan total
-        function updateTotal() {
-            const subtotal = calculateSubtotal();
-            const promoData = appliedPromoCode ? promoCodes[appliedPromoCode] : null;
-            const discount = calculateDiscount(subtotal, promoData);
-            const total = subtotal - discount;
+const paymentModal = document.getElementById('paymentModal');
+const paymentDetails = document.getElementById('paymentDetails');
+const closeModalBtn = document.getElementById('closeModalBtn');
 
-            subtotalEl.textContent = formatCurrency(subtotal);
-            
-            if (discount > 0) {
-                discountEl.textContent = '-' + formatCurrency(discount);
-                discountRow.classList.remove('hidden');
-            } else {
-                discountRow.classList.add('hidden');
-            }
-            
-            totalAmountEl.textContent = formatCurrency(total);
-            currentDiscount = discount;
-        }
+// ===== UTILITY FUNCTIONS =====
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0
+    }).format(amount);
+}
 
-        // ===== FUNGSI PROMO CODE =====
-        
-        // Terapkan kode promo
-        function applyPromoCode() {
-            const code = promoCode.value.trim().toUpperCase();
-            
-            if (!code) {
-                showPromoMessage('Masukkan kode promo terlebih dahulu', 'error');
-                return;
-            }
+function getCurrentTime() {
+    const now = new Date();
+    return now.toLocaleString('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 
-            if (!promoCodes[code]) {
-                showPromoMessage('Kode promo tidak valid', 'error');
-                return;
-            }
+function generateTransactionId() {
+    return 'TRX' + Date.now().toString().slice(-8) + Math.random().toString(36).substr(2, 4).toUpperCase();
+}
 
-            appliedPromoCode = code;
-            updateTotal();
-            showPromoMessage(`Kode promo "${code}" berhasil diterapkan! ${promoCodes[code].description}`, 'success');
-            promoCode.disabled = true;
-            applyPromoBtn.textContent = 'Diterapkan';
-            applyPromoBtn.disabled = true;
-            applyPromoBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
-            applyPromoBtn.classList.add('bg-gray-400');
-        }
+// ===== CALCULATIONS =====
+function calculateSubtotal() {
+    const selectedOption = productSelect.options[productSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.dataset.price) return 0;
 
-        // Tampilkan pesan promo
-        function showPromoMessage(message, type) {
-            promoMessage.textContent = message;
-            promoMessage.classList.remove('hidden', 'text-red-500', 'text-green-500');
-            promoMessage.classList.add(type === 'error' ? 'text-red-500' : 'text-green-500');
-        }
+    const price = parseInt(selectedOption.dataset.price);
+    const qty = parseInt(quantity.value) || 1;
+    return price * qty;
+}
 
-        // Reset promo code
-        function resetPromoCode() {
-            appliedPromoCode = '';
-            currentDiscount = 0;
-            promoCode.value = '';
-            promoCode.disabled = false;
-            applyPromoBtn.textContent = 'Terapkan';
-            applyPromoBtn.disabled = false;
-            applyPromoBtn.classList.remove('bg-gray-400');
-            applyPromoBtn.classList.add('bg-green-500', 'hover:bg-green-600');
-            promoMessage.classList.add('hidden');
-            updateTotal();
-        }
+function calculateDiscount(subtotal, promoData) {
+    if (!promoData) return 0;
+    return promoData.type === 'percentage'
+        ? Math.round(subtotal * promoData.discount / 100)
+        : Math.min(promoData.discount, subtotal);
+}
 
-        // ===== FUNGSI TRANSAKSI =====
-        
-        // Proses pembayaran
-        function processPayment(formData) {
-            const selectedOption = productSelect.options[productSelect.selectedIndex];
-            const subtotal = calculateSubtotal();
-            const total = subtotal - currentDiscount;
+function updateTotal() {
+    const subtotal = calculateSubtotal();
+    const promoData = appliedPromoCode ? promoCodes[appliedPromoCode] : null;
+    const discount = calculateDiscount(subtotal, promoData);
+    const total = subtotal - discount;
 
-            const transaction = {
-                id: generateTransactionId(),
-                customerName: formData.get('customerName'),
-                customerEmail: formData.get('customerEmail'),
-                product: selectedOption.textContent,
-                productValue: selectedOption.value,
-                quantity: parseInt(formData.get('quantity')),
-                paymentMethod: formData.get('paymentMethod'),
-                promoCode: appliedPromoCode,
-                subtotal: subtotal,
-                discount: currentDiscount,
-                total: total,
-                timestamp: new Date(),
-                time: getCurrentTime(),
-                status: 'success'
-            };
+    subtotalEl.textContent = formatCurrency(subtotal);
+    if (discount > 0) {
+        discountEl.textContent = '-' + formatCurrency(discount);
+        discountRow.classList.remove('hidden');
+    } else {
+        discountRow.classList.add('hidden');
+    }
+    totalAmountEl.textContent = formatCurrency(total);
+    currentDiscount = discount;
+}
 
-            transactions.push(transaction);
-            return transaction;
-        }
+// ===== PROMO CODE =====
+function applyPromoCode() {
+    const code = promoCode.value.trim().toUpperCase();
+    if (!code) return showPromoMessage('Masukkan kode promo terlebih dahulu', 'error');
+    if (!promoCodes[code]) return showPromoMessage('Kode promo tidak valid', 'error');
 
-        // Tampilkan modal konfirmasi
-        function showPaymentModal(transaction) {
-            paymentDetails.innerHTML = `
-                <div class="space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">ID Transaksi:</span>
-                        <span class="font-medium">${transaction.id}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Nama:</span>
-                        <span class="font-medium">${transaction.customerName}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Produk:</span>
-                        <span class="font-medium">${transaction.product}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Jumlah:</span>
-                        <span class="font-medium">${transaction.quantity}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Metode:</span>
-                        <span class="font-medium">${paymentMethodNames[transaction.paymentMethod]}</span>
-                    </div>
-                    ${transaction.discount > 0 ? `
-                    <div class="flex justify-between text-green-600">
-                        <span>Diskon:</span>
-                        <span class="font-medium">-${formatCurrency(transaction.discount)}</span>
-                    </div>
-                    ` : ''}
-                    <hr class="my-2">
-                    <div class="flex justify-between text-lg font-semibold">
-                        <span>Total:</span>
-                        <span class="text-green-600">${formatCurrency(transaction.total)}</span>
-                    </div>
-                </div>
-            `;
-            
-            paymentModal.classList.remove('hidden');
-            paymentModal.classList.add('flex');
-        }
+    appliedPromoCode = code;
+    updateTotal();
+    showPromoMessage(`Kode promo "${code}" berhasil diterapkan! ${promoCodes[code].description}`, 'success');
+    promoCode.disabled = true;
+    applyPromoBtn.textContent = 'Diterapkan';
+    applyPromoBtn.disabled = true;
+    applyPromoBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+    applyPromoBtn.classList.add('bg-gray-400');
+}
 
-        // Tutup modal
-        function closeModal() {
-            paymentModal.classList.add('hidden');
-            paymentModal.classList.remove('flex');
-        }
+function showPromoMessage(message, type) {
+    promoMessage.textContent = message;
+    promoMessage.classList.remove('hidden', 'text-red-500', 'text-green-500');
+    promoMessage.classList.add(type === 'error' ? 'text-red-500' : 'text-green-500');
+}
 
-        // ===== FUNGSI RIWAYAT TRANSAKSI =====
-        
-        // Buat elemen transaksi
-        function createTransactionElement(transaction) {
-            const template = document.getElementById('transactionTemplate');
-            const clone = template.content.cloneNode(true);
-            
-            clone.querySelector('.transaction-customer').textContent = transaction.customerName;
-            clone.querySelector('.transaction-product').textContent = `${transaction.product} (${transaction.quantity}x)`;
-            clone.querySelector('.transaction-amount').textContent = formatCurrency(transaction.total);
-            clone.querySelector('.transaction-time').textContent = transaction.time;
-            
-            const methodEl = clone.querySelector('.transaction-method');
-            methodEl.textContent = paymentMethodNames[transaction.paymentMethod];
-            methodEl.className += ' ' + paymentMethodColors[transaction.paymentMethod];
-            
-            return clone;
-        }
+function resetPromoCode() {
+    appliedPromoCode = '';
+    currentDiscount = 0;
+    promoCode.value = '';
+    promoCode.disabled = false;
+    applyPromoBtn.textContent = 'Terapkan';
+    applyPromoBtn.disabled = false;
+    applyPromoBtn.classList.remove('bg-gray-400');
+    applyPromoBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+    promoMessage.classList.add('hidden');
+    updateTotal();
+}
 
-        // Render daftar transaksi
-        function renderTransactions() {
-            // Hapus semua transaksi dari DOM
-            const transactionItems = transactionList.querySelectorAll('[data-transaction-id]');
-            transactionItems.forEach(item => item.remove());
+// ===== TRANSAKSI =====
+function processPayment(formData) {
+    const selectedOption = productSelect.options[productSelect.selectedIndex];
+    const subtotal = calculateSubtotal();
+    const total = subtotal - currentDiscount;
 
-            if (transactions.length === 0) {
-                emptyState.style.display = 'block';
-                clearHistoryBtn.classList.add('hidden');
-            } else {
-                emptyState.style.display = 'none';
-                clearHistoryBtn.classList.remove('hidden');
+    const transaction = {
+        id: generateTransactionId(),
+        customerName: formData.get('customerName'),
+        customerEmail: formData.get('customerEmail'),
+        product: selectedOption.textContent,
+        productValue: selectedOption.value,
+        quantity: parseInt(formData.get('quantity')),
+        paymentMethod: formData.get('paymentMethod'),
+        promoCode: appliedPromoCode,
+        subtotal,
+        discount: currentDiscount,
+        total,
+        timestamp: new Date(),
+        time: getCurrentTime(),
+        status: 'success'
+    };
 
-                // Tampilkan transaksi terbaru di atas
-                const sortedTransactions = [...transactions].reverse();
-                sortedTransactions.forEach(transaction => {
-                    const transactionElement = createTransactionElement(transaction);
-                    // Tambahkan ID untuk referensi
-                    const container = transactionElement.querySelector('div');
-                    container.setAttribute('data-transaction-id', transaction.id);
-                    transactionList.appendChild(transactionElement);
-                });
-            }
+    transactions.push(transaction);
+    return transaction;
+}
 
-            updateStatistics();
-        }
+function showPaymentModal(transaction) {
+    paymentDetails.innerHTML = `
+        <div class="space-y-2">
+            <div class="flex justify-between"><span>ID Transaksi:</span><span>${transaction.id}</span></div>
+            <div class="flex justify-between"><span>Nama:</span><span>${transaction.customerName}</span></div>
+            <div class="flex justify-between"><span>Produk:</span><span>${transaction.product}</span></div>
+            <div class="flex justify-between"><span>Jumlah:</span><span>${transaction.quantity}</span></div>
+            <div class="flex justify-between"><span>Metode:</span><span>${paymentMethodNames[transaction.paymentMethod]}</span></div>
+            ${transaction.discount > 0 ? `<div class="flex justify-between text-green-600"><span>Diskon:</span><span>-${formatCurrency(transaction.discount)}</span></div>` : ''}
+            <hr class="my-2">
+            <div class="flex justify-between text-lg font-semibold"><span>Total:</span><span class="text-green-600">${formatCurrency(transaction.total)}</span></div>
+        </div>
+    `;
+    paymentModal.classList.remove('hidden');
+    paymentModal.classList.add('flex');
+}
 
-        // Update statistik
-        function updateStatistics() {
-            const totalTrans = transactions.length;
-            const totalRev = transactions.reduce((sum, t) => sum + t.total, 0);
-            const avgTrans = totalTrans > 0 ? totalRev / totalTrans : 0;
+function closeModal() {
+    paymentModal.classList.add('hidden');
+    paymentModal.classList.remove('flex');
+}
 
-            totalTransactionsEl.textContent = totalTrans;
-            totalRevenueEl.textContent = formatCurrency(totalRev);
-            avgTransactionEl.textContent = formatCurrency(avgTrans);
-        }
+function createTransactionElement(transaction) {
+    const template = document.getElementById('transactionTemplate');
+    const clone = template.content.cloneNode(true);
+    clone.querySelector('.transaction-customer').textContent = transaction.customerName;
+    clone.querySelector('.transaction-product').textContent = `${transaction.product} (${transaction.quantity}x)`;
+    clone.querySelector('.transaction-amount').textContent = formatCurrency(transaction.total);
+    clone.querySelector('.transaction-time').textContent = transaction.time;
 
-        // Hapus semua riwayat
-        function clearAllHistory() {
-            if (transactions.length === 0) return;
-            
-            if (confirm('Apakah Anda yakin ingin menghapus semua riwayat transaksi?')) {
-                transactions = [];
-                renderTransactions();
-            }
-        }
+    const methodEl = clone.querySelector('.transaction-method');
+    methodEl.textContent = paymentMethodNames[transaction.paymentMethod];
+    methodEl.className += ' ' + paymentMethodColors[transaction.paymentMethod];
 
-        // Reset form
-        function resetForm() {
-            paymentForm.reset();
-            resetPromoCode();
-            updateTotal();
-        }
+    return clone;
+}
 
-        // ===== EVENT LISTENERS =====
-        
-        // Form submission
-        paymentForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(paymentForm);
-            
-            // Validasi metode pembayaran
-            if (!formData.get('paymentMethod')) {
-                alert('Silakan pilih metode pembayaran');
-                return;
-            }
+function renderTransactions() {
+    const transactionItems = transactionList.querySelectorAll('[data-transaction-id]');
+    transactionItems.forEach(item => item.remove());
 
-            // Validasi total > 0
-            const total = calculateSubtotal() - currentDiscount;
-            if (total <= 0) {
-                alert('Total pembayaran harus lebih dari 0');
-                return;
-            }
+    if (transactions.length === 0) {
+        emptyState.style.display = 'block';
+        clearHistoryBtn.classList.add('hidden');
+    } else {
+        emptyState.style.display = 'none';
+        clearHistoryBtn.classList.remove('hidden');
 
-            try {
-                const transaction = processPayment(formData);
-                showPaymentModal(transaction);
-                renderTransactions();
-                resetForm();
-            } catch (error) {
-                alert('Terjadi kesalahan saat memproses pembayaran');
-                console.error('Payment error:', error);
-            }
+        const sorted = [...transactions].reverse();
+        sorted.forEach(t => {
+            const el = createTransactionElement(t);
+            el.querySelector('div').setAttribute('data-transaction-id', t.id);
+            transactionList.appendChild(el);
         });
+    }
 
-        // Product select dan quantity change
-        productSelect.addEventListener('change', updateTotal);
-        quantity.addEventListener('input', updateTotal);
+    updateStatistics();
+}
 
-        // Promo code
-        applyPromoBtn.addEventListener('click', applyPromoCode);
-        promoCode.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                applyPromoCode();
-            }
-        });
+function updateStatistics() {
+    const total = transactions.length;
+    const revenue = transactions.reduce((sum, t) => sum + t.total, 0);
+    const average = total > 0 ? revenue / total : 0;
 
-        // Modal controls
-        closeModalBtn.addEventListener('click', closeModal);
-        paymentModal.addEventListener('click', function(e) {
-            if (e.target === paymentModal) {
-                closeModal();
-            }
-        });
+    totalTransactionsEl.textContent = total;
+    totalRevenueEl.textContent = formatCurrency(revenue);
+    avgTransactionEl.textContent = formatCurrency(average);
+}
 
-        // Clear history
-        clearHistoryBtn.addEventListener('click', clearAllHistory);
+function clearAllHistory() {
+    if (transactions.length === 0) return;
+    if (confirm('Apakah Anda yakin ingin menghapus semua riwayat transaksi?')) {
+        transactions = [];
+        renderTransactions();
+    }
+}
 
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && !paymentModal.classList.contains('hidden')) {
-                closeModal();
-            }
-        });
+function resetForm() {
+    paymentForm.reset();
+    resetPromoCode();
+    updateTotal();
+}
 
-        // ===== INISIALISASI =====
-        
-        // Initialize app
-        function initApp() {
-            updateTotal();
-            renderTransactions();
-            
-            // Focus ke input nama saat halaman dimuat
-            document.getElementById('customerName').focus();
+// ===== EVENT HANDLERS =====
+document.addEventListener('DOMContentLoaded', () => {
+        const toggleDark = document.getElementById('toggleDarkMode');
+        const root = document.documentElement;
+
+        // Simpan preferensi pengguna di localStorage
+        if (localStorage.getItem('theme') === 'dark') {
+            root.classList.add('dark');
         }
 
-        // Jalankan saat DOM siap
-        document.addEventListener('DOMContentLoaded', initApp);
+        toggleDark.addEventListener('click', () => {
+            root.classList.toggle('dark');
+            const mode = root.classList.contains('dark') ? 'light' : 'dark';
+            localStorage.setItem('theme', mode);
+        });
+    });
+
+        tailwind.config = {
+        darkMode: 'class',
+    }
+
+paymentForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const formData = new FormData(paymentForm);
+
+    if (!formData.get('paymentMethod')) {
+        return alert('Silakan pilih metode pembayaran');
+    }
+
+    const total = calculateSubtotal() - currentDiscount;
+    if (total <= 0) {
+        return alert('Total pembayaran harus lebih dari 0');
+    }
+
+    try {
+        const transaction = processPayment(formData);
+        showPaymentModal(transaction);
+        renderTransactions();
+        resetForm();
+    } catch (error) {
+        alert('Terjadi kesalahan saat memproses pembayaran');
+        console.error(error);
+    }
+});
+
+productSelect.addEventListener('change', updateTotal);
+quantity.addEventListener('input', updateTotal);
+applyPromoBtn.addEventListener('click', applyPromoCode);
+promoCode.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        applyPromoCode();
+    }
+});
+closeModalBtn.addEventListener('click', closeModal);
+paymentModal.addEventListener('click', function (e) {
+    if (e.target === paymentModal) {
+        closeModal();
+    }
+});
+clearHistoryBtn.addEventListener('click', clearAllHistory);
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !paymentModal.classList.contains('hidden')) {
+        closeModal();
+    }
+});
